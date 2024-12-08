@@ -274,12 +274,12 @@ pub async fn copy_clipboard_from_index(i: u64) -> Result<Option<Model>, DbErr> {
     }
 
     let model = model.unwrap();
-    let _ = copy_clipboard_from_id(model.id).await;
+    let _ = copy_clipboard_from_id(model.id, ClipboardType::Text).await;
 
     Ok(Some(model))
 }
 
-pub async fn copy_clipboard_from_id(id: i32) -> Result<bool, DbErr> {
+pub async fn copy_clipboard_from_id(id: i32, requested_type: ClipboardType) -> Result<bool, DbErr> {
     let clipboard_data = get_clipboard_db(id).await?;
     let clipboard = APP.get().expect("APP not initialized").state::<Clipboard>();
 
@@ -288,49 +288,45 @@ pub async fn copy_clipboard_from_id(id: i32) -> Result<bool, DbErr> {
         None => return Ok(false),
     };
 
-    // Track if any write operation succeeded
-    let mut any_success = false;
-
-    // Try to write all clipboard types
-    for clipboard_type in types {
-        let success = match clipboard_type {
-            ClipboardType::Image => clipboard_data
-                .image
-                .as_ref()
-                .and_then(|model| clipboard.write_image_binary(model.data.clone()).ok())
-                .is_some(),
-
-            ClipboardType::Text => clipboard_data
-                .text
-                .as_ref()
-                .and_then(|model| clipboard.write_text(model.data.clone()).ok())
-                .is_some(),
-
-            ClipboardType::Html => clipboard_data
-                .html
-                .as_ref()
-                .and_then(|model| clipboard.write_html(model.data.clone()).ok())
-                .is_some(),
-
-            ClipboardType::Rtf => clipboard_data
-                .rtf
-                .as_ref()
-                .and_then(|model| clipboard.write_rtf(model.data.clone()).ok())
-                .is_some(),
-
-            ClipboardType::File => clipboard_data
-                .file
-                .as_ref()
-                .and_then::<bool, _>(|_model| None)
-                .is_some(),
-        };
-
-        if success {
-            any_success = true;
-        }
+    // Check if the requested type exists in the clipboard data
+    if !types.contains(&requested_type) {
+        return Ok(false);
     }
 
-    if any_success {
+    // Write only the requested type
+    let success = match requested_type {
+        ClipboardType::Image => clipboard_data
+            .image
+            .as_ref()
+            .and_then(|model| clipboard.write_image_binary(model.data.clone()).ok())
+            .is_some(),
+
+        ClipboardType::Text => clipboard_data
+            .text
+            .as_ref()
+            .and_then(|model| clipboard.write_text(model.data.clone()).ok())
+            .is_some(),
+
+        ClipboardType::Html => clipboard_data
+            .html
+            .as_ref()
+            .and_then(|model| clipboard.write_html(model.data.clone()).ok())
+            .is_some(),
+
+        ClipboardType::Rtf => clipboard_data
+            .rtf
+            .as_ref()
+            .and_then(|model| clipboard.write_rtf(model.data.clone()).ok())
+            .is_some(),
+
+        ClipboardType::File => clipboard_data
+            .file
+            .as_ref()
+            .and_then::<bool, _>(|_model| None)
+            .is_some(),
+    };
+
+    if success {
         if let Some(window) = APP
             .get()
             .expect("APP not initialized")
@@ -340,5 +336,5 @@ pub async fn copy_clipboard_from_id(id: i32) -> Result<bool, DbErr> {
         }
     }
 
-    Ok(any_success)
+    Ok(success)
 }

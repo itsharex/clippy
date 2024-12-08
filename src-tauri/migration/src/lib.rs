@@ -1,5 +1,6 @@
 use sea_orm::EnumIter;
 pub use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
 mod m000001_create_clipboard;
@@ -15,7 +16,7 @@ mod m000009_seed;
 
 pub struct Migrator;
 
-#[derive(Iden, EnumIter, PartialEq)]
+#[derive(Iden, EnumIter, PartialEq, Serialize, Deserialize, Debug)]
 pub enum ClipboardType {
     #[iden = "text"]
     Text,
@@ -63,7 +64,7 @@ impl ClipboardType {
     }
 }
 
-#[derive(Iden, EnumIter)]
+#[derive(Iden, EnumIter, PartialEq, Serialize, Deserialize, Debug)]
 pub enum ClipboardTextType {
     #[iden = "text"]
     Text,

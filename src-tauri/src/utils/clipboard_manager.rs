@@ -272,18 +272,25 @@ impl ClipboardManagerExt for ClipboardManager {
                     .and_then(|e| e.to_str())
                     .map(|s| s.to_string());
 
-                // Get MIME type using infer first, fallback to mime_guess
-                let mime_type = infer::get_from_path(path)
-                    .ok()
-                    .flatten()
-                    .map(|k| k.mime_type().to_string())
-                    .or_else(|| {
-                        Some(
-                            mime_guess::from_path(path)
-                                .first_or_octet_stream()
-                                .to_string(),
-                        )
-                    });
+                // Get MIME type using tree_magic_mini
+                let mime_type = Some(
+                    if let Some(content_type) = tree_magic_mini::from_filepath(path) {
+                        content_type.to_string()
+                    } else {
+                        // Fallback to infer for binary files
+                        infer::get_from_path(path)
+                            .ok()
+                            .flatten()
+                            .map(|k| k.mime_type().to_string())
+                            .unwrap_or_else(|| {
+                                // Final fallback to mime_guess
+                                mime_guess::from_path(path)
+                                    .first_or_octet_stream()
+                                    .to_string()
+                            })
+                            .to_string()
+                    },
+                );
 
                 // Use std::fs::Metadata for timestamps
                 let created = metadata.created().ok().map(|t| {
